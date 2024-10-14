@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Detection with YOLOv4</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            display: flex; /* Sử dụng flexbox để sắp xếp ảnh và bảng thông tin */
+            width: 80%; /* Chiều rộng của container */
+            margin-top: 20px; /* Khoảng cách trên */
+        }
+        .image-container {
+            flex: 3; /* Bên trái chiếm 3 phần */
+            text-align: center; /* Căn giữa ảnh */
+        }
+        .info-container {
+            flex: 1; /* Bên phải chiếm 1 phần */
+            padding-left: 20px; /* Khoảng cách bên trái cho bảng thông tin */
+            overflow: auto; /* Cho phép cuộn nếu nội dung quá lớn */
+        }
+        img {
+            max-width: 100%; /* Giới hạn kích thước ảnh */
+        }
+        table {
+            width: 100%; /* Chiều rộng của bảng */
+            border-collapse: collapse; /* Xóa khoảng cách giữa các ô */
+        }
+        th, td {
+            border: 1px solid #ddd; /* Đường viền cho các ô */
+            padding: 8px; /* Khoảng cách trong các ô */
+            text-align: left; /* Căn trái cho nội dung ô */
+        }
+        th {
+            background-color: #f2f2f2; /* Màu nền cho tiêu đề */
+        }
+    </style>
+</head>
+<body>
+    <h1>Object Detection with YOLOv4</h1>
+    <input type="file" id="fileInput" accept="image/*" onchange="previewImage()">
+    <button onclick="uploadImage()">Upload and Detect</button>
+    
+    <div class="container">
+        <div class="image-container" id="imagePreview"></div>  <!-- Hiển thị ảnh tải lên -->
+        <div class="info-container" id="result">
+            <h2>Detection Results:</h2>
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>Label</th>
+                        <th>Confidence</th>
+                        <th>BBox</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>  <!-- Hiển thị kết quả nhận diện -->
+    </div>
+
+    <script>
+        let originalImage; // Biến để lưu ảnh gốc
+    
+        function previewImage() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+    
+            reader.onload = function(event) {
+                originalImage = event.target.result; // Lưu ảnh gốc
+                const imgPreview = document.createElement('img');
+                imgPreview.src = originalImage;
+                imgPreview.alt = "Uploaded Image";
+                imgPreview.style.marginTop = "20px"; // Khoảng cách giữa ảnh tải lên và kết quả
+                const imagePreviewDiv = document.getElementById('imagePreview');
+                imagePreviewDiv.innerHTML = ''; // Xóa ảnh trước đó
+                imagePreviewDiv.appendChild(imgPreview); // Thêm ảnh mới vào div
+            };
+    
+            if (file) {
+                reader.readAsDataURL(file); // Đọc ảnh dưới dạng URL
+            }
+        }
+    
+        async function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('image', file);
+    
+            try {
+                const response = await fetch('http://localhost:5000/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+    
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+    
+                const data = await response.json();
+                displayResult(data);
+            } catch (error) {
+                console.error('Error during upload:', error);
+                alert('Error during upload: ' + error.message);
+            }
+        }
+    
+        function displayResult(data) {
+            const resultTableBody = document.getElementById('resultTable').getElementsByTagName('tbody')[0];
+            resultTableBody.innerHTML = ''; // Xóa nội dung bảng trước đó
+    
+            // Hiển thị thông tin nhận diện từng đối tượng
+            if (data.objects.length === 0 || !data.objects) {
+                const row = resultTableBody.insertRow();
+                const cell1 = row.insertCell(0);
+                const cell2 = row.insertCell(1);
+                const cell3 = row.insertCell(2);
+                cell1.innerHTML = "None";
+                cell2.innerHTML = "None";
+                cell3.innerHTML = "None";
+            } else {
+                data.objects.forEach(item => {
+                    const row = resultTableBody.insertRow();
+                    const cell1 = row.insertCell(0);
+                    const cell2 = row.insertCell(1);
+                    const cell3 = row.insertCell(2);
+                    cell1.innerHTML = item.label !== null ? item.label : "None";
+                    cell2.innerHTML = item.confidence !== null ? item.confidence.toFixed(2) : "None";
+                    cell3.innerHTML = item.bbox ? item.bbox.join(', ') : "None";
+                });
+            }
+    
+            // Hiển thị hình ảnh đã xử lý
+            if (data.image) {
+                const processedImg = document.createElement('img');
+                processedImg.src = `data:image/jpeg;base64,${data.image}`;
+                processedImg.alt = "Processed Image";
+                processedImg.style.maxWidth = "100%";  // Tùy chỉnh kích thước ảnh nếu cần
+    
+                // Cập nhật ảnh hiển thị
+                const imagePreviewDiv = document.getElementById('imagePreview');
+                imagePreviewDiv.innerHTML = ''; // Xóa ảnh cũ
+                imagePreviewDiv.appendChild(processedImg); // Thêm ảnh đã xử lý
+            } else {
+                resultTableBody.innerHTML += "<p>No image returned from the server.</p>";  // Thêm thông báo nếu không có ảnh
+            }
+        }
+    </script>
+    
+</body>
+</html>
