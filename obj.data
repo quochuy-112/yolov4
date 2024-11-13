@@ -1,5 +1,0 @@
-classes = 3
-train = data/train.txt
-valid = data/test.txt
-names = C:/xampp/htdocs/yolov4/obj.names
-backup = ../training
